@@ -6,10 +6,12 @@ import org.springframework.boot.web.servlet.MultipartConfigFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing
 import org.springframework.util.unit.DataSize
+import org.springframework.scheduling.annotation.EnableScheduling;
 import javax.servlet.MultipartConfigElement
 
 @EnableJpaAuditing
 @SpringBootApplication
+@EnableScheduling
 class TollsfordsApplication
 
 @Bean
