@@ -14,25 +14,13 @@ import ru.rkniazev.tollsfords.parsers.pitersmoke.PiterSmokeParser
 @Component
 class Parsers (@Autowired val repoAdapt: AdaptingSkuRepository,
                @Autowired val repoStockRepository: StockRepository,
-               var source: MutableList<BaseParser> = mutableListOf()){
-    init {
-        source.addAll(
-                mutableListOf(
-                        PiterSmokeParser(repoAdapt,repoStockRepository),
-                        S2BParser(repoAdapt,repoStockRepository),
-                        MkParser(repoAdapt,repoStockRepository)
-                )
-        )
-    }
+               @Autowired(required = false)
+               var parsers: MutableList<BaseParser> = mutableListOf()){
 
-    @Scheduled(cron = "0 0 12,20 * * *")
+    @Scheduled(cron = "0 0 12 * * *")
     fun parseFromAllSource(){
-        source.forEach{
-            GlobalScope.launch {
-                it.parseData()
-            }
+        parsers.forEach{
+            it.parseData()
         }
     }
-
-
 }

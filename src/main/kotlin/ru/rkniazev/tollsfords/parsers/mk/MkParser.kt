@@ -1,6 +1,7 @@
 package ru.rkniazev.tollsfords.parsers.mk;
 
 import org.jsoup.Jsoup
+import org.springframework.stereotype.Service
 import ru.rkniazev.tollsfords.models.AdaptingSkuRepository
 import ru.rkniazev.tollsfords.models.SKU
 import ru.rkniazev.tollsfords.models.Stock
@@ -9,6 +10,7 @@ import ru.rkniazev.tollsfords.parsers.BaseParser
 import ru.rkniazev.tollsfords.parsers.RETAILNAME
 import java.time.LocalDate
 
+@Service
 class MkParser(val addingAdaptingSku:AdaptingSkuRepository,
                 val repoStockRepository:StockRepository)  : BaseParser {
 
