@@ -1,6 +1,8 @@
 package ru.rkniazev.tollsfords.parsers.mk;
 
 import org.jsoup.Jsoup
+import org.jsoup.select.Elements
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import ru.rkniazev.tollsfords.models.AdaptingSkuRepository
 import ru.rkniazev.tollsfords.models.SKU
@@ -8,83 +10,101 @@ import ru.rkniazev.tollsfords.models.Stock
 import ru.rkniazev.tollsfords.models.StockRepository
 import ru.rkniazev.tollsfords.parsers.BaseParser
 import ru.rkniazev.tollsfords.parsers.RETAILNAME
+import ru.rkniazev.tollsfords.parsers.SavingStockService
+import ru.rkniazev.tollsfords.parsers.ValidatingSkuService
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
+import java.util.*
+import kotlin.math.max
 
 @Service
-class MkParser(val addingAdaptingSku:AdaptingSkuRepository,
-                val repoStockRepository:StockRepository)  : BaseParser {
+class MkParser(@Autowired override val adaptingSkuRepository:AdaptingSkuRepository,
+               @Autowired override val validatingSkuService: ValidatingSkuService,
+               @Autowired override val savingStockService: SavingStockService) : BaseParser {
 
-    val urlStart = "https://www.allkalyans.ru"
-    val urlSearch = "search/?q="
-
-    val html= Jsoup.connect(urlStart)
-    var allProductList:List<String> = mutableListOf<String>()
-    val report = mutableMapOf<String, MutableList<SKU>>()
-    val listAllSku = mutableSetOf<String>()
-    val ourProduct = listOf("dark side","daily hookah","zomo")
-
+    override val urlBase = "https://www.allkalyans.ru"
+    override val listUrlSku = mutableListOf<String>()
+    override val retail = RETAILNAME.MK
 
     override fun parseData() {
-        val dateParse = LocalDate.now()
-        ourProduct.forEach { findAllLinksByQuery(it) }
-
-        allProductList.map { "https://www.allkalyans.ru/local/ajax/catalog.availability.php?id=$it"}
-                .forEach { findStockForProduckt(it) }
-
-        report.forEach{
-            val shop = it.key
-
-            it.value.forEach {
-                val stock = Stock(dateParse, RETAILNAME.MK ,shop,it,1)
-                repoStockRepository.save(stock)
-            }
-        }
-        repoStockRepository.flush()
-
+        updateListUrlSku()
+        findStocks()
     }
 
 
-    fun findAllLinksByQuery(query: String, page:Int = 1) {
-        val html = Jsoup.connect("$urlStart/$urlSearch$query&PAGEN_1=$page").get()
-        val listResult = html.getElementsByClass("option-select__item").select("input").eachAttr("value")
+    override fun updateListUrlSku(){
+        listUrlSku.clear()
+        val urlCatalog = "catalog"
+        Jsoup.connect("$urlBase/$urlCatalog").get()
+                .getElementsByClass("catalog-sections__tags-item")
+                .map { it.getElementsByTag("a")
+                        .first()
+                        .attr("href") }
+                .filter { it.contains("tabak") }
+                .filter { validatingSkuService.validateSku(it) }
+                .flatMap { allAdditionalPage(it) }
+                .flatMap {
+                    Jsoup.connect(it).get()
+                            .getElementsByClass("catalog__item")
+                }
+                .flatMap {
+                    it.getElementsByClass("option-select__item")
+                            .flatMap { it.getElementsByTag("input") }
 
-        allProductList += listResult
-
-        try {
-            val pageNow = html.getElementsByClass("pagination__item_current").select("span").text().toInt()
-            val pageMax = html.getElementsByClass("pagination__link").select("span").map { it.text() }.max()?.toInt()
-
-            if( pageMax != null && pageMax > pageNow ) {
-                findAllLinksByQuery(query, pageNow+1)
-            }
-        } catch (e:Exception){
-
-        }
-
+                }
+                .map { urlBase + "/local/ajax/catalog.availability.php?id=" + it.attr("value") }
+                .toCollection(listUrlSku)
     }
 
-    fun findStockForProduckt(url: String){
-        val page = Jsoup.connect(url).get()
-        var name = page.getElementsByClass("popup__subtitle").text()
-        val weight = page
-                .getElementsByClass("option-select__item")
-                .filter { it.select("input").hasAttr("checked") }
-                .first()
-                .select("div")
-                .text()
-        name = "$weight $name"
+    private fun allAdditionalPage(url: String): List<String>{
+        val result = mutableListOf<String>()
+        val maxPage = Jsoup.connect("$urlBase$url").get()
+                .getElementsByClass("pagination__list")
+                .flatMap { it.getElementsByTag("span") }
+                .map { it.text() }
+                .max()?.toInt()
 
-        val listStock = page
-                .getElementsByClass("availability__shops-item")
-                .filter{ it.getElementsByClass("status").first().text().equals("В наличии") }
-                .map { it.getElementsByClass("address").text() }
-                .forEach{shop ->
-                    if (!report.containsKey(shop)) { report[shop] = mutableListOf<SKU>() }
+        maxPage?.let {
+           for (page in 1..it){
+               result.add("$urlBase$url?PAGEN_1=$page")
+            }
+            return result
+        }
+
+        return mutableListOf("$urlBase$url")
+    }
+
+    override fun findStocks() {
+        val stocks = mutableListOf<Stock>()
+
+        listUrlSku
+                .map {
+                    Jsoup.connect(it).get()
+                }
+                .forEach {
+                    var name = it.getElementsByClass("popup__subtitle").text()
+                    val weight = it
+                            .getElementsByClass("option-select__item")
+                            .filter { it.select("input").hasAttr("checked") }
+                            .first()
+                            .select("div")
+                            .text()
+                    name = "$weight $name"
+
                     try {
-                        addingAdaptingSku.findByName(name).first().sku?.let { report[shop]?.add(it) }
+                        adaptingSkuRepository.findByName(name).first().sku?.let { sku ->
+                            it.getElementsByClass("availability__shops-item")
+                                    .filter { it.getElementsByClass("status").first().text().equals("В наличии") }
+                                    .map { it.getElementsByClass("address").text() }
+                                    .forEach { shop ->
+                                        stocks.add(Stock(LocalDate.now(),retail,shop,sku,1))
+                                    }
+                        }
                     } catch (e:Exception){
                         println("SKU $name dont fine in DB")
                     }
                 }
-        }
+        savingStockService.saveResult(stocks)
+    }
 }

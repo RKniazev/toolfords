@@ -1,6 +1,7 @@
 package ru.rkniazev.tollsfords.parsers.pitersmoke
 
 import org.jsoup.Jsoup
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import ru.rkniazev.tollsfords.models.AdaptingSkuRepository
 import ru.rkniazev.tollsfords.models.SKU
@@ -8,82 +9,94 @@ import ru.rkniazev.tollsfords.models.Stock
 import ru.rkniazev.tollsfords.models.StockRepository
 import ru.rkniazev.tollsfords.parsers.BaseParser
 import ru.rkniazev.tollsfords.parsers.RETAILNAME
+import ru.rkniazev.tollsfords.parsers.SavingStockService
+import ru.rkniazev.tollsfords.parsers.ValidatingSkuService
 import java.time.LocalDate
 
 @Service
-class PiterSmokeParser(val addingAdaptingSku: AdaptingSkuRepository,
-                       val repoStockRepository: StockRepository):BaseParser {
-    val urlStart = "https://pitersmoke.su"
-    val html= Jsoup.connect(urlStart)
-    var allProductList:List<String> = mutableListOf<String>()
-    val report = mutableMapOf<String, MutableList<SKU>>()
+class PiterSmokeParser(@Autowired override val adaptingSkuRepository:AdaptingSkuRepository,
+                       @Autowired override val validatingSkuService: ValidatingSkuService,
+                       @Autowired override val savingStockService: SavingStockService) : BaseParser {
+    override val urlBase = "https://pitersmoke.su"
+    override val listUrlSku = mutableListOf<String>()
+    override val retail = RETAILNAME.PITERSMOKE
 
 
     override fun parseData() {
-        val dateParse = LocalDate.now();
-        findAllLinks()
-        allProductList.forEach{
-            findStockForProduckt(it)
-        }
+        updateListUrlSku()
+        findStocks()
+    }
 
-        report.forEach{
-            val shop = it.key
 
-            it.value.forEach {
-                val stock = Stock(dateParse, RETAILNAME.PITERSMOKE,shop,it,1)
-                repoStockRepository.save(stock)
+
+    override fun updateListUrlSku(){
+        listUrlSku.clear()
+        Jsoup.connect("$urlBase").get()
+                .getElementById("categories")
+                .getElementsByTag("li")
+                .map{
+                    "https://pitersmoke.su" + it.getElementsByTag("a").attr("href")
+                }
+                .filter { it.contains("tabak") }
+                .filter { validatingSkuService.validateSku(it) }
+                .flatMap { allAdditionalPage(it) }
+                .flatMap { Jsoup.connect(it).get().getElementsByClass("product-item")}
+                .map { urlBase + it.getElementsByTag("a").attr("href") }
+                .toCollection(listUrlSku)
+    }
+
+    private fun allAdditionalPage(url: String): List<String>{
+        val result = mutableListOf<String>()
+        val maxPage = Jsoup.connect(url).get()
+                .getElementsByClass("pagination")
+                .flatMap { it.getElementsByTag("a") }
+                .map { it.text() }
+                .dropLast(1)
+                .max()?.toInt()
+
+        maxPage?.let {
+            for (page in 1..it){
+                result.add("$url?page=$page")
             }
+            return result
         }
 
-        repoStockRepository.flush()
+        return mutableListOf("$url")
     }
 
-    fun findAllLinks(){
-        allProductList = html.get()
-                .select("a")
-                .filter{ itsOurProduct(it.toString()) }
+    override fun findStocks() {
+        val stocks = mutableListOf<Stock>()
+
+        listUrlSku
                 .map {
-                    val res = mutableListOf<String>()
-                    for (x in 1..10){
-                        res.add(urlStart + it.attr("href") + "?page=" + x.toString())
-                    }
-                    res }
-                .flatMap {it.toList()}
-                .map { html.url(it).get().select("a")
-                        .filter{ itsOurProduct(it.toString()) }
-                        .map { urlStart + it.attr("href") } }
-                .flatMap {it.toList()}
-                .filter { it.contains("product") }
-                .distinct()
-                .sorted()
-    }
-
-    fun itsOurProduct(inp: String):Boolean{
-        val ourProduct = listOf("darkside","dailyhookah","zomo")
-        val clearInp = inp.replace("-","").replace(" ","")
-        for (x in ourProduct){
-            if (clearInp.contains(x,true))
-                return true
-        }
-        return false
-    }
-
-    fun findStockForProduckt(url: String){
-        val page = Jsoup.connect(url).get()
-        val name = page.select("h1").text()
-        val listStock = page
-                .getElementsByClass("stock-name")
-                .map { it.text().replace(" \\(([\\s\\S]+?)\\)".toRegex(),"")}
-                .forEach{shop ->
-                    if (!report.containsKey(shop)){
-                        report[shop] = mutableListOf<SKU>()
-                    }
+                    Jsoup.connect(it).get()
+                }
+                .forEach {
+                    var name = it.getElementsByTag("h1").text()
 
                     try {
-                        addingAdaptingSku.findByName(name).first().sku?.let { report[shop]?.add(it) }
+                        adaptingSkuRepository.findByName(name).first().sku?.let { sku ->
+                            it.getElementById("nav-stocks")
+                                    .getElementsByClass("row stock-sku-row")
+                                    .forEach {
+                                        val shop = it.getElementsByClass("stock-name").first()
+                                                .text()
+                                                .replace(" \\(([\\s\\S]+?)\\)".toRegex(),"")
+
+                                        var count = it.getElementsByClass("stock-value").first()
+                                                .text()
+                                                .replace(" шт.","")
+
+                                        if (count.equals("Много")){
+                                            count = "5"
+                                        }
+                                        stocks.add(Stock(LocalDate.now(),retail,shop,sku,count.toInt()))
+                                    }
+                        }
                     } catch (e:Exception){
                         println("SKU $name dont fine in DB")
                     }
                 }
+        savingStockService.saveResult(stocks)
     }
 }

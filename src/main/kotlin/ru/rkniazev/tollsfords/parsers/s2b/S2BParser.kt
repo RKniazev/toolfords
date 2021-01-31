@@ -1,6 +1,7 @@
 package ru.rkniazev.tollsfords.parsers.s2b;
 
 import org.jsoup.Jsoup
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import ru.rkniazev.tollsfords.models.AdaptingSkuRepository;
 import ru.rkniazev.tollsfords.models.SKU
@@ -8,77 +9,92 @@ import ru.rkniazev.tollsfords.models.Stock
 import ru.rkniazev.tollsfords.models.StockRepository;
 import ru.rkniazev.tollsfords.parsers.BaseParser
 import ru.rkniazev.tollsfords.parsers.RETAILNAME
+import ru.rkniazev.tollsfords.parsers.SavingStockService
+import ru.rkniazev.tollsfords.parsers.ValidatingSkuService
 import java.time.LocalDate
 
 @Service
-class S2BParser(val addingAdaptingSku:AdaptingSkuRepository,
-                val repoStockRepository:StockRepository)  : BaseParser {
+class S2BParser(@Autowired override val adaptingSkuRepository:AdaptingSkuRepository,
+                @Autowired override val validatingSkuService: ValidatingSkuService,
+                @Autowired override val savingStockService: SavingStockService)  : BaseParser {
 
-    val urlStart = "https://s2b-rf.ru"
-    val urlSearch = "search/result?qsearch="
-
-    val html= Jsoup.connect(urlStart)
-    var allProductList:List<String> = mutableListOf<String>()
-    val report = mutableMapOf<String, MutableList<SKU>>()
-    val listAllSku = mutableSetOf<String>()
-    val ourProduct = listOf("darkside","daily hookah","zomo")
+    override val urlBase = "https://s2b-rf.ru"
+    override val listUrlSku = mutableListOf<String>()
+    override val retail = RETAILNAME.S2B
 
 
     override fun parseData() {
-        val dateParse = LocalDate.now()
-        ourProduct.forEach { findAllLinksByQuery(it) }
-
-        allProductList.forEach{
-            findStockForProduckt(it)
-        }
-
-        report.forEach{
-            val shop = it.key
-
-            it.value.forEach {
-                val stock = Stock(dateParse, RETAILNAME.S2B,shop,it,1)
-                repoStockRepository.save(stock)
-            }
-        }
-        repoStockRepository.flush()
+        updateListUrlSku()
+        findStocks()
     }
 
+    override fun updateListUrlSku(){
+        listUrlSku.clear()
 
-    fun findAllLinksByQuery(query: String, page:Int = 1){
-        val html = Jsoup.connect("$urlStart/$urlSearch$query&page=$page").get()
-        val listResult = html.getElementsByClass("entry__name").select("a").eachAttr("href").filter { it.contains("iteminfo") }.map{ urlStart+it }
-        allProductList += listResult
-
-        val pageNow = html.getElementsByClass("pagenav__button_current").attr("data-page").toInt()
-        val pageNext = html.getElementsByClass("pagenav__button_next").attr("data-page").toInt()
-
-        if( pageNext > pageNow ){
-            findAllLinksByQuery(query,pageNext)
-        }
+        Jsoup.connect(urlBase).get()
+                .getElementsByClass("submenu__entry")
+                .map{ urlBase + it.getElementsByTag("a").attr("href")}
+                .filter { it.contains("tabak") }
+                .filter { validatingSkuService.validateSku(it) }
+                .flatMap { allAdditionalPage(it)}
+                .flatMap { Jsoup.connect(it).get().getElementsByClass("list__entry_item")}
+                .map { urlBase + it.attr("data-url") }
+                .toCollection(listUrlSku)
     }
 
-    fun findStockForProduckt(url: String){
-        val page = Jsoup.connect(url).get()
-        val name = page.select("h1").text()
-
-        val listStock = page
-                .getElementsByClass("address_list")
-                .flatMap { it.getElementsByClass("list__entry") }
-                .filter{
-                    it.getElementsByClass("card__status").first().text().equals("В наличии")
+    private fun allAdditionalPage(url: String): List<String>{
+        val result = mutableListOf<String>()
+        val maxPage = Jsoup.connect(url).get()
+                .getElementById("catalog-pagenav")
+                .getElementsByTag("a")
+                .map{
+                    it.attr("data-page")
                 }
-                .map { it.getElementsByClass("metro__inner").text().replace(" \\(([\\s\\S]+?)\\)".toRegex(),"")}
-                .forEach{shop ->
-                    if (!report.containsKey(shop)){
-                        report[shop] = mutableListOf<SKU>()
-                    }
+                .max()?.toInt()
+
+        maxPage?.let {
+            for (page in 1..it){
+                result.add("$url?page=$page")
+            }
+            return result
+        }
+
+        return mutableListOf("$url")
+    }
+
+    override fun findStocks() {
+        val stocks = mutableListOf<Stock>()
+
+        listUrlSku
+                .map {
+                    Jsoup.connect(it).get()
+                }
+                .forEach{
+                    val name = it.getElementsByTag("h1").text()
+
                     try {
-                        addingAdaptingSku.findByName(name).first().sku?.let { report[shop]?.add(it) }
+                        adaptingSkuRepository.findByName(name).first().sku?.let { sku ->
+                            it.getElementsByClass("address_list")
+                                    .flatMap { it.getElementsByClass("list__entry") }
+                                    .filter{
+                                        it.getElementsByClass("card__status")
+                                                .first()
+                                                .text()
+                                                .equals("В наличии")
+                                    }
+                                    .map { it.getElementsByClass("metro__inner")
+                                            .text()
+                                            .replace(" \\(([\\s\\S]+?)\\)".toRegex(),"")
+                                    }
+                                    .forEach {
+                                        stocks.add(Stock(LocalDate.now(),retail,it,sku,1))
+                                    }
+                        }
                     } catch (e:Exception){
                         println("SKU $name dont fine in DB")
                     }
-
                 }
 
+        savingStockService.saveResult(stocks)
     }
 }
