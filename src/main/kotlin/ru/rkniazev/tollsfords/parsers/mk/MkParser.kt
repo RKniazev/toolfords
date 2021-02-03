@@ -4,10 +4,7 @@ import org.jsoup.Jsoup
 import org.jsoup.select.Elements
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
-import ru.rkniazev.tollsfords.models.AdaptingSkuRepository
-import ru.rkniazev.tollsfords.models.SKU
-import ru.rkniazev.tollsfords.models.Stock
-import ru.rkniazev.tollsfords.models.StockRepository
+import ru.rkniazev.tollsfords.models.*
 import ru.rkniazev.tollsfords.parsers.BaseParser
 import ru.rkniazev.tollsfords.parsers.RETAILNAME
 import ru.rkniazev.tollsfords.parsers.SavingStockService
@@ -20,12 +17,15 @@ import kotlin.math.max
 
 @Service
 class MkParser(@Autowired override val adaptingSkuRepository:AdaptingSkuRepository,
+               @Autowired override val retailRepository: RetailRepository,
+               @Autowired override val shopRepository: ShopRepository,
                @Autowired override val validatingSkuService: ValidatingSkuService,
-               @Autowired override val savingStockService: SavingStockService) : BaseParser {
+               @Autowired override val savingStockService: SavingStockService
+               ) : BaseParser {
 
     override val urlBase = "https://www.allkalyans.ru"
     override val listUrlSku = mutableListOf<String>()
-    override val retail = RETAILNAME.MK
+    override val retail = retailRepository.findByName("МирКальянов").first()
 
     override fun parseData() {
         updateListUrlSku()
@@ -91,14 +91,16 @@ class MkParser(@Autowired override val adaptingSkuRepository:AdaptingSkuReposito
                             .select("div")
                             .text()
                     name = "$weight $name"
+                    val date = LocalDate.now()
 
                     try {
                         adaptingSkuRepository.findByName(name).first().sku?.let { sku ->
                             it.getElementsByClass("availability__shops-item")
                                     .filter { it.getElementsByClass("status").first().text().equals("В наличии") }
                                     .map { it.getElementsByClass("address").text() }
-                                    .forEach { shop ->
-                                        stocks.add(Stock(LocalDate.now(),retail,shop,sku,1))
+                                    .forEach { shopName ->
+                                        val shop = shopRepository.findByNameAndRetail(shopName,retail).first()
+                                        stocks.add(Stock(date,shop,sku,1))
                                     }
                         }
                     } catch (e:Exception){

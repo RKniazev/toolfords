@@ -3,10 +3,7 @@ package ru.rkniazev.tollsfords.parsers.s2b;
 import org.jsoup.Jsoup
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
-import ru.rkniazev.tollsfords.models.AdaptingSkuRepository;
-import ru.rkniazev.tollsfords.models.SKU
-import ru.rkniazev.tollsfords.models.Stock
-import ru.rkniazev.tollsfords.models.StockRepository;
+import ru.rkniazev.tollsfords.models.*
 import ru.rkniazev.tollsfords.parsers.BaseParser
 import ru.rkniazev.tollsfords.parsers.RETAILNAME
 import ru.rkniazev.tollsfords.parsers.SavingStockService
@@ -15,12 +12,15 @@ import java.time.LocalDate
 
 @Service
 class S2BParser(@Autowired override val adaptingSkuRepository:AdaptingSkuRepository,
+                @Autowired override val shopRepository: ShopRepository,
+                @Autowired override val retailRepository: RetailRepository,
                 @Autowired override val validatingSkuService: ValidatingSkuService,
-                @Autowired override val savingStockService: SavingStockService)  : BaseParser {
+                @Autowired override val savingStockService: SavingStockService
+)  : BaseParser {
 
     override val urlBase = "https://s2b-rf.ru"
     override val listUrlSku = mutableListOf<String>()
-    override val retail = RETAILNAME.S2B
+    override val retail = retailRepository.findByName("S2B").first()
 
 
     override fun parseData() {
@@ -64,6 +64,7 @@ class S2BParser(@Autowired override val adaptingSkuRepository:AdaptingSkuReposit
 
     override fun findStocks() {
         val stocks = mutableListOf<Stock>()
+        val date = LocalDate.now()
 
         listUrlSku
                 .map {
@@ -86,8 +87,9 @@ class S2BParser(@Autowired override val adaptingSkuRepository:AdaptingSkuReposit
                                             .text()
                                             .replace(" \\(([\\s\\S]+?)\\)".toRegex(),"")
                                     }
-                                    .forEach {
-                                        stocks.add(Stock(LocalDate.now(),retail,it,sku,1))
+                                    .forEach { shopName ->
+                                        val shop = shopRepository.findByNameAndRetail(shopName,retail).first()
+                                        stocks.add(Stock(date,shop,sku,1))
                                     }
                         }
                     } catch (e:Exception){

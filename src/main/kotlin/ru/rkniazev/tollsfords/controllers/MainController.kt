@@ -37,11 +37,4 @@ class MainController(@Autowired val repoSku: SkuRepository,
         cache.delete()
         return "ok"
     }
-
-    @PostMapping("/adding_stock",produces = [MediaType.APPLICATION_JSON_VALUE])
-    @CrossOrigin
-    fun addStock(@RequestParam("name") name: String): String {
-        repoStockRepository.saveAndFlush( Stock(retail = RETAILNAME.S2B,shop = "test",count = 12, sku = repoSku.findByName(name).first()) )
-        return "ok"
-    }
 }

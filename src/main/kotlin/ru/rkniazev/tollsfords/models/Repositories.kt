@@ -19,5 +19,12 @@ interface AdaptingSkuRepository : JpaRepository<AdaptingSku, Long> {
 
 interface StockRepository : JpaRepository<Stock, Long> {
     fun findByDate(date: LocalDate): Iterable<Stock>
-    fun findByDateAndRetail(date: LocalDate, retailName: RETAILNAME): Iterable<Stock>
+}
+
+interface RetailRepository : JpaRepository<Retail, Long> {
+    fun findByName(name: String): Iterable<Retail>
+}
+
+interface ShopRepository : JpaRepository<Shop, Long> {
+    fun findByNameAndRetail(name: String,retail: Retail): Iterable<Shop>
 }
