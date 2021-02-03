@@ -6,14 +6,9 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import ru.rkniazev.tollsfords.models.*
 import ru.rkniazev.tollsfords.parsers.BaseParser
-import ru.rkniazev.tollsfords.parsers.RETAILNAME
 import ru.rkniazev.tollsfords.parsers.SavingStockService
 import ru.rkniazev.tollsfords.parsers.ValidatingSkuService
 import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.temporal.ChronoUnit
-import java.util.*
-import kotlin.math.max
 
 @Service
 class MkParser(@Autowired override val adaptingSkuRepository:AdaptingSkuRepository,

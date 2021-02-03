@@ -1,7 +1,6 @@
 package ru.rkniazev.tollsfords.models
 
 import org.springframework.data.jpa.repository.JpaRepository
-import ru.rkniazev.tollsfords.parsers.RETAILNAME
 import java.time.LocalDate
 
 interface SkuRepository : JpaRepository<SKU, Long> {

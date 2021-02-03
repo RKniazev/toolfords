@@ -5,7 +5,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import ru.rkniazev.tollsfords.models.*
 import ru.rkniazev.tollsfords.parsers.BaseParser
-import ru.rkniazev.tollsfords.parsers.RETAILNAME
 import ru.rkniazev.tollsfords.parsers.SavingStockService
 import ru.rkniazev.tollsfords.parsers.ValidatingSkuService
 import java.time.LocalDate
