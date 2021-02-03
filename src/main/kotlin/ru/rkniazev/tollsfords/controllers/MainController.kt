@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import ru.rkniazev.tollsfords.actions.HandlerOrder
 import ru.rkniazev.tollsfords.models.*
-import ru.rkniazev.tollsfords.parsers.RETAILNAME
 import java.io.File
 
 

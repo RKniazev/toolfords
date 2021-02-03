@@ -1,6 +1,5 @@
 package ru.rkniazev.tollsfords.models
 
-import ru.rkniazev.tollsfords.parsers.RETAILNAME
 import java.time.LocalDate
 import javax.persistence.*
 
