@@ -6,12 +6,10 @@ import java.time.LocalDate
 import java.util.*
 
 interface BaseParser {
-    val adaptingSkuRepository: AdaptingSkuRepository
+    val matcherStock: MatchSkuAndShopService
     val validatingSkuService: ValidatingSkuService
-    val shopRepository: ShopRepository
     val savingStockService: SavingStockService
-    val retailRepository: RetailRepository
-    val retail: Retail
+    val retail: String
     val urlBase: String
 
     val listUrlSku: MutableList<String>

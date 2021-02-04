@@ -5,21 +5,20 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import ru.rkniazev.tollsfords.models.*
 import ru.rkniazev.tollsfords.parsers.BaseParser
+import ru.rkniazev.tollsfords.parsers.MatchSkuAndShopService
 import ru.rkniazev.tollsfords.parsers.SavingStockService
 import ru.rkniazev.tollsfords.parsers.ValidatingSkuService
 import java.time.LocalDate
 
 @Service
-class S2BParser(@Autowired override val adaptingSkuRepository:AdaptingSkuRepository,
-                @Autowired override val shopRepository: ShopRepository,
-                @Autowired override val retailRepository: RetailRepository,
+class S2BParser(@Autowired override val matcherStock: MatchSkuAndShopService,
                 @Autowired override val validatingSkuService: ValidatingSkuService,
                 @Autowired override val savingStockService: SavingStockService
 )  : BaseParser {
 
     override val urlBase = "https://s2b-rf.ru"
     override val listUrlSku = mutableListOf<String>()
-    override val retail = retailRepository.findByName("S2B").first()
+    override val retail = "S2B"
 
 
     override fun parseData() {
@@ -71,29 +70,25 @@ class S2BParser(@Autowired override val adaptingSkuRepository:AdaptingSkuReposit
                 }
                 .forEach{
                     val name = it.getElementsByTag("h1").text()
-
-                    try {
-                        adaptingSkuRepository.findByName(name).first().sku?.let { sku ->
-                            it.getElementsByClass("address_list")
-                                    .flatMap { it.getElementsByClass("list__entry") }
-                                    .filter{
-                                        it.getElementsByClass("card__status")
-                                                .first()
-                                                .text()
-                                                .equals("В наличии")
-                                    }
-                                    .map { it.getElementsByClass("metro__inner")
-                                            .text()
-                                            .replace(" \\(([\\s\\S]+?)\\)".toRegex(),"")
-                                    }
-                                    .forEach { shopName ->
-                                        val shop = shopRepository.findByNameAndRetail(shopName,retail).first()
-                                        stocks.add(Stock(date,shop,sku,1))
-                                    }
+                    it.getElementsByClass("address_list")
+                        .flatMap { it.getElementsByClass("list__entry") }
+                        .filter{
+                            it.getElementsByClass("card__status")
+                                    .first()
+                                    .text()
+                                    .equals("В наличии")
                         }
-                    } catch (e:Exception){
-                        println("SKU $name dont fine in DB")
-                    }
+                        .map { it.getElementsByClass("metro__inner")
+                                .text()
+                                .replace(" \\(([\\s\\S]+?)\\)".toRegex(),"")
+                        }
+                        .forEach { shopName ->
+                            val stock = matcherStock.match(retail,shopName,name)
+                            stock?.let {
+                                stocks.add(it)
+                            }
+                        }
+
                 }
 
         savingStockService.saveResult(stocks)

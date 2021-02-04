@@ -6,21 +6,20 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import ru.rkniazev.tollsfords.models.*
 import ru.rkniazev.tollsfords.parsers.BaseParser
+import ru.rkniazev.tollsfords.parsers.MatchSkuAndShopService
 import ru.rkniazev.tollsfords.parsers.SavingStockService
 import ru.rkniazev.tollsfords.parsers.ValidatingSkuService
 import java.time.LocalDate
 
 @Service
-class MkParser(@Autowired override val adaptingSkuRepository:AdaptingSkuRepository,
-               @Autowired override val retailRepository: RetailRepository,
-               @Autowired override val shopRepository: ShopRepository,
+class MkParser(@Autowired override val matcherStock: MatchSkuAndShopService,
                @Autowired override val validatingSkuService: ValidatingSkuService,
                @Autowired override val savingStockService: SavingStockService
                ) : BaseParser {
 
     override val urlBase = "https://www.allkalyans.ru"
     override val listUrlSku = mutableListOf<String>()
-    override val retail = retailRepository.findByName("МирКальянов").first()
+    override val retail = "МирКальянов"
 
     override fun parseData() {
         updateListUrlSku()
@@ -77,7 +76,7 @@ class MkParser(@Autowired override val adaptingSkuRepository:AdaptingSkuReposito
                 .map {
                     Jsoup.connect(it).get()
                 }
-                .forEach {
+                .forEach { it ->
                     var name = it.getElementsByClass("popup__subtitle").text()
                     val weight = it
                             .getElementsByClass("option-select__item")
@@ -86,21 +85,16 @@ class MkParser(@Autowired override val adaptingSkuRepository:AdaptingSkuReposito
                             .select("div")
                             .text()
                     name = "$weight $name"
-                    val date = LocalDate.now()
 
-                    try {
-                        adaptingSkuRepository.findByName(name).first().sku?.let { sku ->
-                            it.getElementsByClass("availability__shops-item")
-                                    .filter { it.getElementsByClass("status").first().text().equals("В наличии") }
-                                    .map { it.getElementsByClass("address").text() }
-                                    .forEach { shopName ->
-                                        val shop = shopRepository.findByNameAndRetail(shopName,retail).first()
-                                        stocks.add(Stock(date,shop,sku,1))
-                                    }
-                        }
-                    } catch (e:Exception){
-                        println("SKU $name dont fine in DB")
-                    }
+                    it.getElementsByClass("availability__shops-item")
+                            .filter { it.getElementsByClass("status").first().text().equals("В наличии") }
+                            .map { it.getElementsByClass("address").text() }
+                            .forEach { shopName ->
+                                val stock = matcherStock.match(retail,shopName,name)
+                                stock?.let {
+                                    stocks.add(it)
+                                }
+                            }
                 }
         savingStockService.saveResult(stocks)
     }

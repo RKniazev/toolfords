@@ -5,20 +5,19 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import ru.rkniazev.tollsfords.models.*
 import ru.rkniazev.tollsfords.parsers.BaseParser
+import ru.rkniazev.tollsfords.parsers.MatchSkuAndShopService
 import ru.rkniazev.tollsfords.parsers.SavingStockService
 import ru.rkniazev.tollsfords.parsers.ValidatingSkuService
 import java.time.LocalDate
 
 @Service
-class PiterSmokeParser(@Autowired override val adaptingSkuRepository:AdaptingSkuRepository,
-                       @Autowired override val shopRepository: ShopRepository,
-                       @Autowired override val retailRepository: RetailRepository,
+class PiterSmokeParser(@Autowired override val matcherStock: MatchSkuAndShopService,
                        @Autowired override val validatingSkuService: ValidatingSkuService,
                        @Autowired override val savingStockService: SavingStockService
 ) : BaseParser {
     override val urlBase = "https://pitersmoke.su"
     override val listUrlSku = mutableListOf<String>()
-    override val retail = retailRepository.findByName("PiterSmoke").first()
+    override val retail = "PiterSmoke"
 
 
     override fun parseData() {
@@ -65,38 +64,36 @@ class PiterSmokeParser(@Autowired override val adaptingSkuRepository:AdaptingSku
 
     override fun findStocks() {
         val stocks = mutableListOf<Stock>()
-        val date = LocalDate.now()
-
         listUrlSku
                 .map {
                     Jsoup.connect(it).get()
                 }
                 .forEach {
                     var name = it.getElementsByTag("h1").text()
-
                     try {
-                        adaptingSkuRepository.findByName(name).first().sku?.let { sku ->
-                            it.getElementById("nav-stocks")
-                                    .getElementsByClass("row stock-sku-row")
-                                    .forEach {
-                                        val shopName = it.getElementsByClass("stock-name").first()
-                                                .text()
-                                                .replace(" \\(([\\s\\S]+?)\\)".toRegex(),"")
+                        it.getElementById("nav-stocks")
+                            .getElementsByClass("row stock-sku-row")
+                            .forEach {
+                                val shopName = it.getElementsByClass("stock-name").first()
+                                    .text()
+                                    .replace(" \\(([\\s\\S]+?)\\)".toRegex(),"")
 
-                                        var count = it.getElementsByClass("stock-value").first()
-                                                .text()
-                                                .replace(" шт.","")
+                                var count = it.getElementsByClass("stock-value").first()
+                                    .text()
+                                    .replace(" шт.","")
 
-                                        if (count.equals("Много")){
-                                            count = "5"
-                                        }
-                                        val shop = shopRepository.findByNameAndRetail(shopName,retail).first()
-                                        stocks.add(Stock(date,shop,sku,count.toInt()))
-                                    }
-                        }
-                    } catch (e:Exception){
-                        println("SKU $name dont fine in DB")
+                                if (count.equals("Много")){
+                                    count = "5"
+                                }
+                                val stock = matcherStock.match(retail,shopName,name,count.toInt())
+                                stock?.let {
+                                    stocks.add(it)
+                                }
+                            }
+                    }catch (e:Exception){
+                        println("Exeption on $ name")
                     }
+
                 }
         savingStockService.saveResult(stocks)
     }
