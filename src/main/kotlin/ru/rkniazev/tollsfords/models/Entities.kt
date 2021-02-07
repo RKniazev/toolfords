@@ -14,7 +14,7 @@ class SKU(
 
         fun toJson():String{
                 return "{\"id\":\"${this.id}\"," +
-                        "\"name\":\"${this.name.replace("\"","\\\"")}\"," +
+                        "\"name\":\"${this.name.toJson()}\"," +
                         "\"code\":\"${this.code}\"," +
                         "\"weight\":\"${this.weight}\"," +
                         "\"category_id\":\"${this.category?.id}\"}"
@@ -48,7 +48,7 @@ class Stock(
                         "\"date\":\"${this.date}\"," +
                         "\"retail\":\"${this.shop_id?.retail?.name}\"," +
                         "\"shop\":\"${this.shop_id?.name}\"," +
-                        "\"sku\":\"${this.sku?.name?.replace("\"","\\\"")}\"," +
+                        "\"sku\":\"${this.sku?.name?.toJson()}\"," +
                         "\"count\":\"${this.count}\"}"
         }
 }
@@ -57,6 +57,11 @@ class Stock(
 @Table(name = "retail")
 class Retail(
         val name: String = ""):BaseEntity<Long>(){
+
+        fun toJson():String{
+                return "{\"id\":\"${this.id}\"," +
+                        "\"name\":\"${this.name}\"}"
+        }
 
 }
 
@@ -71,5 +76,19 @@ class Shop(
         val latitude : Long? = 0,
         val longitude : Long? = 0):BaseEntity<Long>(){
 
+        fun toJson():String{
+                return "{\"id\":\"${this.id}\"," +
+                        "\"name\":\"${this.name.toJson()}\"," +
+                        "\"description\":\"${this.description}\"," +
+                        "\"address\":\"${this.address}\"," +
+                        "\"retail\": ${this.retail?.toJson()}," +
+                        "\"latitude\":\"${this.latitude}\"," +
+                        "\"longitude\":\"${this.longitude}\"}"
+        }
+
+
 }
 
+fun String.toJson():String{
+       return this.replace("\"","\\\"")
+}
