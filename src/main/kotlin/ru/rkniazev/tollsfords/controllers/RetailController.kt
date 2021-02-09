@@ -11,46 +11,17 @@ import ru.rkniazev.tollsfords.models.RetailRepository
 class RetailController(@Autowired val rep: RetailRepository) {
 
     @PostMapping("")
-    fun add(@RequestBody retail: Retail?): String? {
-        retail?.let {
-            rep.saveAndFlush(retail)
-            return retail.toJson()
-        }
-        return ""
-    }
+    fun add(@RequestBody retail: Retail) = rep.saveAndFlush(retail)
 
     @GetMapping("")
-    fun get(): String? {
-        var result = "["
-        rep.findAll().forEach {
-            result += "${it.toJson()},"
-        }
-        result = result.dropLast(1) + "]"
-        return result
-    }
+    fun get() = rep.findAll()
 
     @GetMapping("/{inputId}")
-    fun getById(@PathVariable inputId: String):String{
-        val id = inputId.toLong()
-        val shop = rep.findById(id).get()
-        return "${shop.toJson()}"
-    }
+    fun getById(@PathVariable inputId: Long) = rep.findById(inputId).get()
 
     @DeleteMapping("/{inputId}")
-    fun delById(@PathVariable inputId: String) : String {
-        val id = inputId.toLong()
-        return if (rep.existsById(id)){
-            rep.deleteById(id)
-            "Success"
-        } else {
-            "Id don't fine"
-        }
-    }
+    fun delById(@PathVariable inputId: Long) = rep.deleteById(inputId)
 
     @PutMapping("")
-    fun put(@RequestBody retail: Retail?)  {
-        retail?.let {
-            rep.saveAndFlush(retail)
-        }
-    }
+    fun put(@RequestBody retail: Retail) = rep.saveAndFlush(retail)
 }
