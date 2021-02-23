@@ -1,4 +1,4 @@
-package ru.rkniazev.tollsfords.parsers
+package ru.rkniazev.tollsfords.parsers.service
 
 import org.springframework.stereotype.Service
 

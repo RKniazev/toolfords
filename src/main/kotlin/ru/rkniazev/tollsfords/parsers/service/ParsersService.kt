@@ -1,14 +1,14 @@
-package ru.rkniazev.tollsfords.parsers
+package ru.rkniazev.tollsfords.parsers.service
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.async
-import kotlinx.coroutines.launch
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import org.springframework.scheduling.annotation.Scheduled;
-import ru.rkniazev.tollsfords.parsers.mk.MkParser
-import ru.rkniazev.tollsfords.parsers.pitersmoke.PiterSmokeParser
-import ru.rkniazev.tollsfords.parsers.s2b.S2BParser
+import ru.rkniazev.tollsfords.parsers.BaseParser
+import ru.rkniazev.tollsfords.parsers.MkParser
+import ru.rkniazev.tollsfords.parsers.PiterSmokeParser
+import ru.rkniazev.tollsfords.parsers.S2BParser
 
 @Component
 class ParsersService (@Autowired(required = false)

@@ -1,14 +1,12 @@
-package ru.rkniazev.tollsfords.parsers.pitersmoke
+package ru.rkniazev.tollsfords.parsers
 
 import org.jsoup.Jsoup
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import ru.rkniazev.tollsfords.models.*
-import ru.rkniazev.tollsfords.parsers.BaseParser
-import ru.rkniazev.tollsfords.parsers.MatchSkuAndShopService
-import ru.rkniazev.tollsfords.parsers.SavingStockService
-import ru.rkniazev.tollsfords.parsers.ValidatingSkuService
-import java.time.LocalDate
+import ru.rkniazev.tollsfords.parsers.service.MatchSkuAndShopService
+import ru.rkniazev.tollsfords.parsers.service.SavingStockService
+import ru.rkniazev.tollsfords.parsers.service.ValidatingSkuService
 
 @Service
 class PiterSmokeParser(@Autowired override val matcherStock: MatchSkuAndShopService,

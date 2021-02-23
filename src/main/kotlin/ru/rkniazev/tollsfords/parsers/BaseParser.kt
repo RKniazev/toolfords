@@ -1,5 +1,9 @@
 package ru.rkniazev.tollsfords.parsers
 
+import ru.rkniazev.tollsfords.parsers.service.MatchSkuAndShopService
+import ru.rkniazev.tollsfords.parsers.service.SavingStockService
+import ru.rkniazev.tollsfords.parsers.service.ValidatingSkuService
+
 interface BaseParser {
     val matcherStock: MatchSkuAndShopService
     val validatingSkuService: ValidatingSkuService

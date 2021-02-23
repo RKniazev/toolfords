@@ -1,14 +1,18 @@
-package ru.rkniazev.tollsfords.parsers
+package ru.rkniazev.tollsfords.parsers.service
 
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import ru.rkniazev.tollsfords.models.*
+import ru.rkniazev.tollsfords.parsers.model.NotMatchNameEntity
+import ru.rkniazev.tollsfords.parsers.model.NotMatchNameRepository
 import java.time.LocalDate
 
 @Service
 class MatchSkuAndShopService(@Autowired val adaptingSkuRepository: AdaptingSkuRepository,
                              @Autowired val shopRepository: ShopRepository,
-                             @Autowired val retailRepository: RetailRepository) {
+                             @Autowired val retailRepository: RetailRepository,
+                             @Autowired val notMatchNameRepository: NotMatchNameRepository
+) {
 
     fun match(retail_inp: String?=null,
               shop_inp: String,
@@ -24,7 +28,7 @@ class MatchSkuAndShopService(@Autowired val adaptingSkuRepository: AdaptingSkuRe
                 return Stock(date,shop,sku,count)
             }
         }catch (e:Exception) {
-            println("SKU $name_inp dont fine in DB")
+            notMatchNameRepository.saveAndFlush(NotMatchNameEntity(name = name_inp))
         }
         return null
     }
