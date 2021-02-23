@@ -9,7 +9,7 @@ import ru.rkniazev.tollsfords.models.ShopRepository
 
 @RestController
 @RequestMapping("/shop")
-class ShopController(@Autowired val rep: ShopRepository) {
+class ShopCrudController(@Autowired val rep: ShopRepository) {
 
     @PostMapping("")
     fun add(@RequestBody shop: Shop) = rep.saveAndFlush(shop)

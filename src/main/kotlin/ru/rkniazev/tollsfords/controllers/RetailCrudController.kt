@@ -8,7 +8,7 @@ import ru.rkniazev.tollsfords.models.RetailRepository
 
 @RestController
 @RequestMapping("/retail")
-class RetailController(@Autowired val rep: RetailRepository) {
+class RetailCrudController(@Autowired val rep: RetailRepository) {
 
     @PostMapping("")
     fun add(@RequestBody retail: Retail) = rep.saveAndFlush(retail)
