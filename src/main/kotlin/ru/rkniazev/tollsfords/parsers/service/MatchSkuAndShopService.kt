@@ -28,7 +28,9 @@ class MatchSkuAndShopService(@Autowired val adaptingSkuRepository: AdaptingSkuRe
                 return Stock(date,shop,sku,count)
             }
         }catch (e:Exception) {
-            notMatchNameRepository.saveAndFlush(NotMatchNameEntity(name = name_inp))
+            if (notMatchNameRepository.findByName(name_inp).count()==0){
+                notMatchNameRepository.saveAndFlush(NotMatchNameEntity(name = name_inp))
+            }
         }
         return null
     }
